@@ -1,0 +1,22 @@
+[project]
+name = "remote-sync"
+version = "0.1.0"
+description = "Simple staged directory sync over a single FastAPI upload endpoint"
+readme = "README.md"
+authors = [
+    { name = "dakixr", email = "dakixr@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0,<1.0.0",
+    "httpx>=0.28.0,<1.0.0",
+    "uvicorn>=0.34.0,<1.0.0",
+]
+
+[project.scripts]
+remote-sync = "remote_sync.cli:main"
+dev = "remote_sync.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11.3,<0.12.0"]
+build-backend = "uv_build"
