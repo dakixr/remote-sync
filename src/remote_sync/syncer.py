@@ -57,7 +57,7 @@ class SyncClient:
         client_context = (
             nullcontext(self.http_client)
             if self.http_client is not None
-            else httpx.Client(timeout=self.timeout)
+            else httpx.Client(timeout=self.timeout, verify=False)
         )
         with client_context as client:
             self._post(client, workspace, session_id, UploadOperation.BEGIN)
@@ -102,7 +102,7 @@ class SyncClient:
         client_context = (
             nullcontext(self.http_client)
             if self.http_client is not None
-            else httpx.Client(timeout=self.timeout)
+            else httpx.Client(timeout=self.timeout, verify=False)
         )
         with client_context as client:
             response = client.post(
