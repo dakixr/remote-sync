@@ -45,3 +45,20 @@ class UploadResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str = "ok"
+
+
+class DownloadRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    workspace: str = Field(min_length=1, max_length=255)
+
+
+class FileEntry(BaseModel):
+    path: str
+    content_b64: str
+
+
+class DownloadResponse(BaseModel):
+    workspace: str
+    directories: list[str]
+    files: list[FileEntry]

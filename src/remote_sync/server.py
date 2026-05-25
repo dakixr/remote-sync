@@ -8,8 +8,17 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 
+from remote_sync.auth import RequireAuth
 from remote_sync.fs import ensure_directory, replace_directory, safe_join, sanitize_workspace_name
-from remote_sync.protocol import HealthResponse, UploadOperation, UploadRequest, UploadResponse
+from remote_sync.protocol import (
+    DownloadRequest,
+    DownloadResponse,
+    FileEntry,
+    HealthResponse,
+    UploadOperation,
+    UploadRequest,
+    UploadResponse,
+)
 
 
 @dataclass(slots=True)
@@ -48,7 +57,7 @@ def create_app(storage_root: str | Path) -> FastAPI:
         return HealthResponse()
 
     @app.post("/upload", response_model=UploadResponse)
-    def upload(request: UploadRequest) -> UploadResponse:
+    def upload(request: UploadRequest, _auth: RequireAuth) -> UploadResponse:
         try:
             workspace = sanitize_workspace_name(request.workspace)
         except ValueError as exc:
@@ -77,6 +86,34 @@ def create_app(storage_root: str | Path) -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.post("/download", response_model=DownloadResponse)
+    def download(request: DownloadRequest, _auth: RequireAuth) -> DownloadResponse:
+        try:
+            workspace = sanitize_workspace_name(request.workspace)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        workspace_dir = storage.workspace_dir(workspace)
+        if not workspace_dir.exists():
+            raise HTTPException(status_code=404, detail=f"workspace not found: {workspace}")
+
+        files: list[FileEntry] = []
+        directories: list[str] = []
+
+        for path in sorted(workspace_dir.rglob("*")):
+            relative = path.relative_to(workspace_dir).as_posix()
+            if path.is_dir():
+                directories.append(relative)
+            elif path.is_file():
+                content_b64 = base64.b64encode(path.read_bytes()).decode("ascii")
+                files.append(FileEntry(path=relative, content_b64=content_b64))
+
+        return DownloadResponse(
+            workspace=workspace,
+            directories=directories,
+            files=files,
+        )
 
     return app
 
