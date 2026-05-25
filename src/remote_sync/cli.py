@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 from pathlib import Path
 
@@ -71,6 +72,8 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "server":
+        logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(name)s: %(message)s")
+        logging.getLogger("remote_sync").setLevel(logging.INFO)
         app = create_app(Path(args.storage))
         uvicorn.run(app, host=args.host, port=args.port)
         return

@@ -19,6 +19,7 @@ SERVER_LOG="$(mktemp -t remote-sync-server.XXXXXX.log)"
 TUNNEL_LOG="$(mktemp -t remote-sync-tunnel.XXXXXX.log)"
 SERVER_PID=""
 TUNNEL_PID=""
+SERVER_LOG_PID=""
 
 cleanup() {
   local exit_code=$?
@@ -32,6 +33,11 @@ cleanup() {
   if [[ -n "${SERVER_PID}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
     kill "${SERVER_PID}" 2>/dev/null || true
     wait "${SERVER_PID}" 2>/dev/null || true
+  fi
+
+  if [[ -n "${SERVER_LOG_PID}" ]] && kill -0 "${SERVER_LOG_PID}" 2>/dev/null; then
+    kill "${SERVER_LOG_PID}" 2>/dev/null || true
+    wait "${SERVER_LOG_PID}" 2>/dev/null || true
   fi
 
   rm -f "${SERVER_LOG}" "${TUNNEL_LOG}"
@@ -61,6 +67,12 @@ wait_for_http() {
   return 1
 }
 
+stream_log() {
+  local label="$1"
+  local file="$2"
+  tail -n +1 -F "${file}" 2>/dev/null | sed -u "s/^/[${label}] /"
+}
+
 require_cmd uv
 require_cmd cloudflared
 require_cmd curl
@@ -77,6 +89,9 @@ if [[ -z "${REMOTE_SYNC_TOKEN}" ]]; then
 fi
 
 echo "Starting server on ${LOCAL_URL}..."
+: >"${SERVER_LOG}"
+stream_log "server" "${SERVER_LOG}" &
+SERVER_LOG_PID=$!
 REMOTE_SYNC_TOKEN="${REMOTE_SYNC_TOKEN}" uv run remote-sync server --host "${HOST}" --port "${PORT}" >"${SERVER_LOG}" 2>&1 &
 SERVER_PID=$!
 
@@ -97,7 +112,8 @@ if [[ -z "${TUNNEL_TOKEN}" ]]; then
   echo "failed to fetch token for named tunnel ${TUNNEL_NAME}" >&2
   exit 1
 fi
-cloudflared tunnel --url "${LOCAL_URL}" --logfile "${TUNNEL_LOG}" run --token "${TUNNEL_TOKEN}" &
+: >"${TUNNEL_LOG}"
+cloudflared tunnel --url "${LOCAL_URL}" --logfile "${TUNNEL_LOG}" run --token "${TUNNEL_TOKEN}" >/dev/null 2>&1 &
 TUNNEL_PID=$!
 PUBLIC_URL="https://${TUNNEL_HOSTNAME}"
 sleep 2

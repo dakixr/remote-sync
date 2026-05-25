@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,6 +20,8 @@ from remote_sync.protocol import (
     UploadRequest,
     UploadResponse,
 )
+
+logger = logging.getLogger("remote_sync.server")
 
 
 @dataclass(slots=True)
@@ -119,6 +122,7 @@ def create_app(storage_root: str | Path) -> FastAPI:
 
 
 def _handle_begin(storage: ServerStorage, workspace: str, session_id: str) -> UploadResponse:
+    logger.info("sync begin workspace=%s session=%s", workspace, session_id)
     session_root = storage.session_root(workspace, session_id)
     if session_root.exists():
         shutil.rmtree(session_root)
@@ -138,6 +142,7 @@ def _require_session_payload(storage: ServerStorage, workspace: str, session_id:
 
 
 def _handle_mkdir(storage: ServerStorage, workspace: str, session_id: str, relative_path: str) -> UploadResponse:
+    logger.info("sync mkdir workspace=%s session=%s path=%s", workspace, session_id, relative_path)
     payload_dir = _require_session_payload(storage, workspace, session_id)
     target_dir = safe_join(payload_dir, relative_path)
     ensure_directory(target_dir)
@@ -151,6 +156,7 @@ def _handle_file(
     relative_path: str,
     content_b64: str,
 ) -> UploadResponse:
+    logger.info("sync file workspace=%s session=%s path=%s", workspace, session_id, relative_path)
     payload_dir = _require_session_payload(storage, workspace, session_id)
     target_file = safe_join(payload_dir, relative_path)
     ensure_directory(target_file.parent)
@@ -163,6 +169,7 @@ def _handle_file(
 
 
 def _handle_finish(storage: ServerStorage, workspace: str, session_id: str) -> UploadResponse:
+    logger.info("sync finish workspace=%s session=%s", workspace, session_id)
     payload_dir = _require_session_payload(storage, workspace, session_id)
     workspace_dir = storage.workspace_dir(workspace)
     ensure_directory(workspace_dir.parent)
